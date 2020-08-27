@@ -1,0 +1,13 @@
+# Ignore everything
+*
+# Whitelist subdirectories
+!*/
+
+# Whitelist the following files and extensions
+!*.go
+!*.md
+!*.gql
+!*.graphql
+!.gitignore
+!go.mod
+!go.sum
