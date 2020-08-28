@@ -2,12 +2,14 @@ package gqldoc
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"path/filepath"
 	"unsafe"
 
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/formatter"
 )
 
 // ParseFiles parses GraphQL schema definitions from the named files.
@@ -36,4 +38,26 @@ func ParseFiles(filenames []string) (*ast.Schema, error) {
 		return nil, fmt.Errorf("unable to parse schema: %w", err)
 	}
 	return schema, nil
+}
+
+type panicWriter struct{ io.Writer }
+
+func (w panicWriter) Write(p []byte) (n int, err error) {
+	if n, err = w.Writer.Write(p); err == nil {
+		return
+	}
+	panic(err)
+}
+
+// FormatGraphQL formats and writes the GraphQL schema to dst, and
+// returns any error encountered when calling Write.
+func FormatGraphQL(dst io.Writer, schema *ast.Schema) (err error) {
+	defer func() {
+		if e, ok := recover().(error); ok {
+			err = e
+		}
+	}()
+	f := formatter.NewFormatter(panicWriter{dst})
+	f.FormatSchema(schema)
+	return nil
 }

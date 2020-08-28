@@ -5,6 +5,9 @@ type Todo {
   user: User!
 }
 
+"""
+This is a Query
+"""
 type Query {
   todos: [Todo!]!
 }
