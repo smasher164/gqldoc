@@ -2,6 +2,7 @@ package gqldoc_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/smasher164/gqldoc"
@@ -44,6 +45,17 @@ func TestRenderGraphQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := gqldoc.FormatGraphQL(new(errWriter), schema); err.Error() != "ERROR" {
+		t.Error(err)
+	}
+}
+
+func TestRenderMarkdown(t *testing.T) {
+	schema, err := gqldoc.ParseFiles([]string{"testdata/github.graphql"})
+	// schema, err := gqldoc.ParseFiles([]string{"testdata/star-wars.graphql"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gqldoc.FormatMarkdown(os.Stdout, schema); err != nil {
 		t.Error(err)
 	}
 }
