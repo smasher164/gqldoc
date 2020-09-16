@@ -6,6 +6,7 @@ package gqldoc
 // TODO mutations
 // TODO subscriptions
 // TODO Table of contents
+// TODO max width
 
 import (
 	"io"
@@ -30,10 +31,17 @@ func indent(tabs int, input string) string {
 
 const mdScalar = `### [{{.Name}}]()
 {{.Description | desc}}
+{{- if .Directives}}
+{{template "directives" .}}
+{{- end}}
 `
 
 const mdEnum = `### [{{.Name}}]()
 {{.Description | desc}}
+{{- if .Directives}}
+{{template "directives" .}}
+{{- end}}
+
 #### Values
 {{- range .EnumValues}}
 **{{.Name}}**
@@ -44,14 +52,22 @@ const mdEnum = `### [{{.Name}}]()
 
 const mdUnion = `### [{{.Name}}]()
 {{.Description | desc}}
+{{- if .Directives}}
+{{template "directives" .}}
+{{- end}}
+
 #### Possible types
 {{- range .Types}}
-- {{.}}
+- [{{.}}]()
 {{- end}}
 `
 
 const mdInput = `### [{{.Name}}]()
 {{.Description | desc}}
+{{- if .Directives}}
+{{template "directives" .}}
+{{- end}}
+
 #### Input fields
 <table>
 	<thead>
@@ -64,7 +80,10 @@ const mdInput = `### [{{.Name}}]()
 	{{- range .Fields}}
 		<tr>
 			<td><strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)</td>
-			<td>{{.Description | desc}}</td>
+			<td>{{.Description | desc}}
+			{{- if .Directives}}
+			{{indentTemplate "directives" . 3}}
+			{{- end}}</td>
 		</tr>
 	{{- end}}
 	</tbody>
@@ -91,12 +110,18 @@ const mdArguments = `{{define "arguments" -}}
 
 const mdInterface = `### [{{.Name}}]()
 {{.Description | desc}}
+
+{{- if .Directives}}
+{{template "directives" .}}
+{{end}}
+
 {{- if .Types}}
 #### Implemented by
 {{- range .Types}}
 - [<code>{{.}}</code>]()
 {{- end}}
 {{- end}}
+
 #### Fields
 <table>
 	<thead>
@@ -110,6 +135,9 @@ const mdInterface = `### [{{.Name}}]()
 		<tr>
 			<td><strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
+			{{- if .Directives}}
+			{{indentTemplate "directives" . 3}}
+			{{- end}}
 			{{- if .Arguments}}
 			{{indentTemplate "arguments" .Arguments 3}}
 			{{- end}}</td>
@@ -121,6 +149,11 @@ const mdInterface = `### [{{.Name}}]()
 
 const mdObject = `### [{{.Name}}]()
 {{.Description | desc}}
+
+{{- if .Directives}}
+{{template "directives" .}}
+{{end}}
+
 {{- if .Interfaces}}
 #### Implements
 {{- range .Interfaces}}
@@ -140,6 +173,9 @@ const mdObject = `### [{{.Name}}]()
 		<tr>
 			<td><strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
+			{{- if .Directives}}
+			{{indentTemplate "directives" . 3}}
+			{{- end}}
 			{{- if .Arguments}}
 			{{indentTemplate "arguments" .Arguments 3}}
 			{{- end}}</td>
@@ -149,12 +185,25 @@ const mdObject = `### [{{.Name}}]()
 </table>
 `
 
-const mdMutation = `### [{{.Name}}]()
-{{.Description | desc}}
-
+const mdDirectives = `{{define "directives" -}}
+{{range .Directives -}}
+<table>
+	<thead>
+		<tr><th>{{.Name}}</th></tr>
+	</thead>
+	<tbody>
+		{{- range .Arguments}}
+		<tr>
+			<td><strong>{{.Name}}</strong>: {{.Value.String | desc}}</td>
+		</tr>
+		{{- end}}
+	</tbody>
+</table>
+{{- end}}
+{{- end}}
 `
 
-func FormatMarkdown(dst io.Writer, schema *ast.Schema) (err error) {
+func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	gm := goldmark.New(
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
@@ -179,21 +228,21 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) (err error) {
 		},
 	})
 	t = template.Must(t.Parse(mdArguments))
+	t = template.Must(t.Parse(mdDirectives))
 
-	// template.Must(template.New("").Parse(mdEnum)).Execute(dst, schema.Types["ActionExecutionCapabilitySetting"])
-	// template.Must(template.New("").Parse(mdScalar)).Execute(dst, schema.Types["ID"])
-	// template.Must(template.New("").Parse(mdUnion)).Execute(dst, schema.Types["CreatedIssueOrRestrictedContribution"])
-	// template.Must(template.New("").Parse(mdInput)).Execute(dst, schema.Types["CloneTemplateRepositoryInput"])
+	// t = template.Must(t.Parse(mdEnum))
+	// t = template.Must(t.Parse(mdScalar))
+	// t = template.Must(t.Parse(mdUnion))
+	// t = template.Must(t.Parse(mdInput))
 
-	// s := make([]string, 0, len(schema.PossibleTypes["ProfileOwner"]))
-	// for _, def := range schema.PossibleTypes["ProfileOwner"] {
+	// s := make([]string, 0, len(schema.PossibleTypes["Contribution"]))
+	// for _, def := range schema.PossibleTypes["Contribution"] {
 	// 	s = append(s, def.Name)
 	// }
-	// schema.Types["ProfileOwner"].Types = s
+	// schema.Types["Contribution"].Types = s
 	// t = template.Must(t.Parse(mdInterface))
-	// t.Execute(dst, schema.Types["ProfileOwner"])
 
-	t = template.Must(t.Parse(mdObject))
-	t.Execute(dst, schema.Types["AcceptEnterpriseAdministratorInvitationPayload"])
-	return nil
+	// t = template.Must(t.Parse(mdObject))
+
+	return t.Execute(dst, schema.Types["Assignee"])
 }
