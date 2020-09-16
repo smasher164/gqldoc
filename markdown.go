@@ -1,18 +1,17 @@
 package gqldoc
 
-// TODO directives
 // TODO urls
 // TODO queries
 // TODO mutations
 // TODO subscriptions
-// TODO Table of contents
-// TODO max width
+// TODO table of contents
 
 import (
 	"io"
 	"strings"
 	"text/template"
 
+	"github.com/mitchellh/go-wordwrap"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/renderer/html"
@@ -99,12 +98,30 @@ const mdArguments = `{{define "arguments" -}}
 			<td>
 				<strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)
 				<br>
-				{{- .Description | desc}}
+				{{- wrap .Description 69 | desc}}
 			</td>
 		</tr>
 	{{- end}}
 	</tbody>
 </table>
+{{- end}}
+`
+
+const mdDirectives = `{{define "directives" -}}
+{{range .Directives -}}
+<table>
+	<thead>
+		<tr><th>{{.Name}}</th></tr>
+	</thead>
+	<tbody>
+		{{- range .Arguments}}
+		<tr>
+			<td><strong>{{.Name}}</strong>: {{len .Name | add 1 | sub 69 | wrap .Value.String | desc}}</td>
+		</tr>
+		{{- end}}
+	</tbody>
+</table>
+{{- end}}
 {{- end}}
 `
 
@@ -185,24 +202,6 @@ const mdObject = `### [{{.Name}}]()
 </table>
 `
 
-const mdDirectives = `{{define "directives" -}}
-{{range .Directives -}}
-<table>
-	<thead>
-		<tr><th>{{.Name}}</th></tr>
-	</thead>
-	<tbody>
-		{{- range .Arguments}}
-		<tr>
-			<td><strong>{{.Name}}</strong>: {{.Value.String | desc}}</td>
-		</tr>
-		{{- end}}
-	</tbody>
-</table>
-{{- end}}
-{{- end}}
-`
-
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	gm := goldmark.New(
 		goldmark.WithRendererOptions(
@@ -226,6 +225,11 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			s = strings.TrimSuffix(s, "</p>")
 			return s, err
 		},
+		"wrap": func(s string, i int) string {
+			return wordwrap.WrapString(s, uint(i))
+		},
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
 	})
 	t = template.Must(t.Parse(mdArguments))
 	t = template.Must(t.Parse(mdDirectives))
@@ -234,6 +238,7 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	// t = template.Must(t.Parse(mdScalar))
 	// t = template.Must(t.Parse(mdUnion))
 	// t = template.Must(t.Parse(mdInput))
+	t = template.Must(t.Parse(mdObject))
 
 	// s := make([]string, 0, len(schema.PossibleTypes["Contribution"]))
 	// for _, def := range schema.PossibleTypes["Contribution"] {
@@ -242,7 +247,5 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	// schema.Types["Contribution"].Types = s
 	// t = template.Must(t.Parse(mdInterface))
 
-	// t = template.Must(t.Parse(mdObject))
-
-	return t.Execute(dst, schema.Types["Assignee"])
+	return t.Execute(dst, schema.Types["AssignedEvent"])
 }
