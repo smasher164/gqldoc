@@ -1,6 +1,5 @@
 package gqldoc
 
-// TODO urls
 // TODO queries
 // TODO mutations
 // TODO subscriptions
@@ -28,14 +27,14 @@ func indent(tabs int, input string) string {
 	return strings.Join(split, "\n")
 }
 
-const mdScalar = `### [{{.Name}}]()
+const mdScalar = `### [{{.Name}}]({{anchor .Name}})
 {{.Description | desc}}
 {{- if .Directives}}
 {{template "directives" .}}
 {{- end}}
 `
 
-const mdEnum = `### [{{.Name}}]()
+const mdEnum = `### [{{.Name}}]({{anchor .Name}})
 {{.Description | desc}}
 {{- if .Directives}}
 {{template "directives" .}}
@@ -49,7 +48,7 @@ const mdEnum = `### [{{.Name}}]()
 {{end -}}
 `
 
-const mdUnion = `### [{{.Name}}]()
+const mdUnion = `### [{{.Name}}]({{anchor .Name}})
 {{.Description | desc}}
 {{- if .Directives}}
 {{template "directives" .}}
@@ -57,11 +56,11 @@ const mdUnion = `### [{{.Name}}]()
 
 #### Possible types
 {{- range .Types}}
-- [{{.}}]()
+- [{{.}}]({{anchor .}})
 {{- end}}
 `
 
-const mdInput = `### [{{.Name}}]()
+const mdInput = `### [{{.Name}}]({{anchor .Name}})
 {{.Description | desc}}
 {{- if .Directives}}
 {{template "directives" .}}
@@ -78,7 +77,7 @@ const mdInput = `### [{{.Name}}]()
 	<tbody>
 	{{- range .Fields}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3}}
@@ -96,7 +95,7 @@ const mdArguments = `{{define "arguments" -}}
 	{{- range .}}
 		<tr>
 			<td>
-				<strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)
+				<strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name}}"><strong>{{.Type}}</strong></a>)
 				<br>
 				{{- wrap .Description 69 | desc}}
 			</td>
@@ -125,7 +124,7 @@ const mdDirectives = `{{define "directives" -}}
 {{- end}}
 `
 
-const mdInterface = `### [{{.Name}}]()
+const mdInterface = `### [{{.Name}}]({{anchor .Name}})
 {{.Description | desc}}
 
 {{- if .Directives}}
@@ -135,7 +134,7 @@ const mdInterface = `### [{{.Name}}]()
 {{- if .Types}}
 #### Implemented by
 {{- range .Types}}
-- [<code>{{.}}</code>]()
+- [<code>{{.}}</code>]({{anchor .}})
 {{- end}}
 {{- end}}
 
@@ -150,7 +149,7 @@ const mdInterface = `### [{{.Name}}]()
 	<tbody>
 	{{- range .Fields}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3}}
@@ -164,7 +163,7 @@ const mdInterface = `### [{{.Name}}]()
 </table>
 `
 
-const mdObject = `### [{{.Name}}]()
+const mdObject = `### [{{.Name}}]({{anchor .Name}})
 {{.Description | desc}}
 
 {{- if .Directives}}
@@ -174,7 +173,7 @@ const mdObject = `### [{{.Name}}]()
 {{- if .Interfaces}}
 #### Implements
 {{- range .Interfaces}}
-- [<code>{{.}}</code>]()
+- [<code>{{.}}</code>]({{anchor .}})
 {{- end}}
 {{- end}}
 #### Fields
@@ -188,7 +187,7 @@ const mdObject = `### [{{.Name}}]()
 	<tbody>
 	{{- range .Fields}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href=""><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3}}
@@ -230,6 +229,10 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
+		"anchor": func(s string) (string, error) {
+			// TODO validation
+			return "#" + strings.ToLower(s), nil
+		},
 	})
 	t = template.Must(t.Parse(mdArguments))
 	t = template.Must(t.Parse(mdDirectives))
