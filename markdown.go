@@ -1,7 +1,5 @@
 package gqldoc
 
-// TODO queries
-// TODO mutations
 // TODO subscriptions
 // TODO table of contents
 
@@ -117,7 +115,7 @@ const mdDirectives = `{{range .Directives -}}
 		{{- end}}
 	</tbody>
 </table>
-{{- end}}
+{{- end -}}
 `
 
 const mdInterface = `### [{{.Name}}]({{anchor .Name}})
@@ -172,6 +170,7 @@ const mdObject = `### [{{.Name}}]({{anchor .Name}})
 - [<code>{{.}}</code>]({{anchor .}})
 {{- end}}
 {{- end}}
+{{- if .Fields}}
 #### Fields
 <table>
 	<thead>
@@ -195,6 +194,90 @@ const mdObject = `### [{{.Name}}]({{anchor .Name}})
 	{{- end}}
 	</tbody>
 </table>
+{{- end}}
+`
+
+const mdQuery = `## Queries
+{{range .Fields}}
+### [{{.Name}}]({{anchor .Name}})
+**Type:** [{{.Type}}]({{anchor .Type.Name}})
+
+{{.Description | desc}}
+
+{{- if .Directives}}
+{{template "directives" .}}
+{{end}}
+
+{{- if .Arguments}}
+#### Arguments
+<table>
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Description</th>
+		</tr>
+	</thead>
+	<tbody>
+	{{- range .Arguments}}
+		<tr>
+			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
+			<td>{{.Description | desc}}
+			{{- if .Directives}}
+			{{indentTemplate "directives" . 3}}
+			{{- end}}</td>
+		</tr>
+	{{- end}}
+	</tbody>
+</table>
+{{- end}}
+
+---
+
+{{end}}
+`
+
+const mdMutation = `## Mutations
+{{range .Fields}}
+### [{{.Name}}]({{anchor .Name}})
+{{.Description | desc}}
+
+{{- if .Directives}}
+{{template "directives" .}}
+{{end}}
+
+{{- if .Arguments}}
+#### Input fields
+{{- range .Arguments}}
+- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{anchor .Type.Name}}))
+{{- end}}
+{{- end}}
+
+{{if fields .Type}}
+#### Return fields
+<table>
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Description</th>
+		</tr>
+	</thead>
+	<tbody>
+	{{- range fields .Type}}
+		<tr>
+			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
+			<td>{{.Description | desc}}
+			{{- if .Directives}}
+			{{indentTemplate "directives" . 3}}
+			{{- end}}</td>
+		</tr>
+	{{- end}}
+	</tbody>
+</table>
+{{end}}
+
+---
+
+{{end}}
 `
 
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
@@ -203,7 +286,7 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			html.WithHardWraps(),
 		),
 	)
-	t := template.New("")
+	t := template.New("schema")
 	t = t.Funcs(template.FuncMap{
 		"indentTemplate": func(name string, v interface{}, tabs int) (string, error) {
 			var buf strings.Builder
@@ -230,6 +313,9 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			return "#" + strings.ToLower(s), nil
 		},
 		"implementers": func(def *ast.Definition) []*ast.Definition { return schema.GetPossibleTypes(def) },
+		"fields": func(T *ast.Type) ast.FieldList {
+			return schema.Types[T.Name()].Fields
+		},
 	})
 	t.New("arguments").Parse(mdArguments)
 	t.New("directives").Parse(mdDirectives)
@@ -239,6 +325,7 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	t.New("input").Parse(mdInput)
 	t.New("object").Parse(mdObject)
 	t.New("interface").Parse(mdInterface)
-
-	return t.Lookup("interface").Execute(dst, schema.Types["Contribution"])
+	t.New("query").Parse(mdQuery)
+	t.New("mutation").Parse(mdMutation)
+	return t.Lookup("mutation").Execute(dst, schema.Mutation)
 }
