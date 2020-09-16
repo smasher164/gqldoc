@@ -88,8 +88,7 @@ const mdInput = `### [{{.Name}}]({{anchor .Name}})
 </table>
 `
 
-const mdArguments = `{{define "arguments" -}}
-<table>
+const mdArguments = `<table>
 	<thead><tr><th>Arguments</th></tr></thead>
 	<tbody>
 	{{- range .}}
@@ -103,11 +102,9 @@ const mdArguments = `{{define "arguments" -}}
 	{{- end}}
 	</tbody>
 </table>
-{{- end}}
 `
 
-const mdDirectives = `{{define "directives" -}}
-{{range .Directives -}}
+const mdDirectives = `{{range .Directives -}}
 <table>
 	<thead>
 		<tr><th>{{.Name}}</th></tr>
@@ -121,7 +118,6 @@ const mdDirectives = `{{define "directives" -}}
 	</tbody>
 </table>
 {{- end}}
-{{- end}}
 `
 
 const mdInterface = `### [{{.Name}}]({{anchor .Name}})
@@ -131,10 +127,10 @@ const mdInterface = `### [{{.Name}}]({{anchor .Name}})
 {{template "directives" .}}
 {{end}}
 
-{{- if .Types}}
+{{- if implementers .}}
 #### Implemented by
-{{- range .Types}}
-- [<code>{{.}}</code>]({{anchor .}})
+{{- range implementers .}}
+- [<code>{{.Name}}</code>]({{anchor .Name}})
 {{- end}}
 {{- end}}
 
@@ -233,22 +229,16 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			// TODO validation
 			return "#" + strings.ToLower(s), nil
 		},
+		"implementers": func(def *ast.Definition) []*ast.Definition { return schema.GetPossibleTypes(def) },
 	})
-	t = template.Must(t.Parse(mdArguments))
-	t = template.Must(t.Parse(mdDirectives))
+	t.New("arguments").Parse(mdArguments)
+	t.New("directives").Parse(mdDirectives)
+	t.New("enum").Parse(mdEnum)
+	t.New("scalar").Parse(mdScalar)
+	t.New("union").Parse(mdUnion)
+	t.New("input").Parse(mdInput)
+	t.New("object").Parse(mdObject)
+	t.New("interface").Parse(mdInterface)
 
-	// t = template.Must(t.Parse(mdEnum))
-	// t = template.Must(t.Parse(mdScalar))
-	// t = template.Must(t.Parse(mdUnion))
-	// t = template.Must(t.Parse(mdInput))
-	t = template.Must(t.Parse(mdObject))
-
-	// s := make([]string, 0, len(schema.PossibleTypes["Contribution"]))
-	// for _, def := range schema.PossibleTypes["Contribution"] {
-	// 	s = append(s, def.Name)
-	// }
-	// schema.Types["Contribution"].Types = s
-	// t = template.Must(t.Parse(mdInterface))
-
-	return t.Execute(dst, schema.Types["AssignedEvent"])
+	return t.Lookup("interface").Execute(dst, schema.Types["Contribution"])
 }
