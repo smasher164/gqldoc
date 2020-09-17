@@ -38379,3 +38379,14 @@ type ViewerHovercardContext implements HovercardContext {
 A valid x509 certificate string
 """
 scalar X509Certificate
+
+
+"""
+This is the root subscription
+"""
+type Subscription {
+	"""
+	This is the description for the blame subscription.
+	"""
+	blameSubscribe(id: ID!): Blame
+}
