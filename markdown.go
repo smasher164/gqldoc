@@ -30,14 +30,14 @@ func indent(tabs int, input string) string {
 	return strings.Join(split, "\n")
 }
 
-const mdScalar = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
+const mdScalar = `### {{.Name}}
 {{.Description | desc}}
 {{- if .Directives}}
 {{indentTemplate "directives" . 0 | minify}}
 {{- end}}
 `
 
-const mdEnum = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
+const mdEnum = `### {{.Name}}
 {{.Description | desc}}
 {{- if .Directives}}
 {{indentTemplate "directives" . 0 | minify}}
@@ -51,7 +51,7 @@ const mdEnum = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
 {{end -}}
 `
 
-const mdUnion = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
+const mdUnion = `### {{.Name}}
 {{.Description | desc}}
 {{- if .Directives}}
 {{indentTemplate "directives" . 0 | minify}}
@@ -63,14 +63,7 @@ const mdUnion = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
 {{- end}}
 `
 
-const mdInput = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
-{{.Description | desc}}
-{{- if .Directives}}
-{{indentTemplate "directives" . 0 | minify}}
-{{- end}}
-
-#### Input fields
-{{define "tableInput"}}<table>
+const mdTableInput = `<table>
 	<thead>
 		<tr>
 			<th>Name</th>
@@ -88,7 +81,16 @@ const mdInput = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
 		</tr>
 	{{- end}}
 	</tbody>
-</table>{{end}}{{indentTemplate "tableInput" . 0 | minify}}
+</table>`
+
+const mdInput = `### {{.Name}}
+{{.Description | desc}}
+{{- if .Directives}}
+{{indentTemplate "directives" . 0 | minify}}
+{{- end}}
+
+#### Input fields
+{{indentTemplate "tableInput" . 0 | minify}}
 `
 
 const mdArguments = `<table>
@@ -123,7 +125,30 @@ const mdDirectives = `{{range .Directives -}}
 {{- end -}}
 `
 
-const mdInterface = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
+const mdTableInterface = `<table>
+	<thead>
+		<tr>
+			<th>Name</th>
+			<th>Description</th>
+		</tr>
+	</thead>
+	<tbody>
+	{{- range .Fields}}
+		<tr>
+			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
+			<td>{{.Description | desc}}
+			{{- if .Directives}}
+			{{indentTemplate "directives" . 3 | minify}}
+			{{- end}}
+			{{- if .Arguments}}
+			{{indentTemplate "arguments" .Arguments 3 | minify}}
+			{{- end}}</td>
+		</tr>
+	{{- end}}
+	</tbody>
+</table>`
+
+const mdInterface = `### {{.Name}}
 {{.Description | desc}}
 
 {{- if .Directives}}
@@ -138,7 +163,10 @@ const mdInterface = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
 {{- end}}
 
 #### Fields
-{{define "tableInterface"}}<table>
+{{indentTemplate "tableInterface" . 0 | minify}}
+`
+
+const mdTableObject = `<table>
 	<thead>
 		<tr>
 			<th>Name</th>
@@ -159,10 +187,9 @@ const mdInterface = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
 		</tr>
 	{{- end}}
 	</tbody>
-</table>{{end}}{{indentTemplate "tableInterface" . 0 | minify}}
-`
+</table>`
 
-const mdObject = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
+const mdObject = `### {{.Name}}
 {{.Description | desc}}
 
 {{- if .Directives}}
@@ -177,44 +204,11 @@ const mdObject = `### {{.Name}} <a href="{{anchor .Name "type"}}"></a>
 {{- end}}
 {{- if .Fields}}
 #### Fields
-<table>
-	<thead>
-		<tr>
-			<th>Name</th>
-			<th>Description</th>
-		</tr>
-	</thead>
-	<tbody>
-	{{- range .Fields}}
-		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
-			<td>{{.Description | desc}}
-			{{- if .Directives}}
-			{{indentTemplate "directives" . 3 | minify}}
-			{{- end}}
-			{{- if .Arguments}}
-			{{indentTemplate "arguments" .Arguments 3 | minify}}
-			{{- end}}</td>
-		</tr>
-	{{- end}}
-	</tbody>
-</table>
+{{indentTemplate "tableObject" . 0 | minify}}
 {{- end}}
 `
 
-const mdQueries = `{{range .Fields -}}
-### {{.Name}} <a href="{{anchor .Name "field"}}"></a>
-**Type:** [{{.Type}}]({{anchor .Type.Name "type"}})
-
-{{.Description | desc}}
-
-{{- if .Directives}}
-{{indentTemplate "directives" . 0 | minify}}
-{{end}}
-
-{{- if .Arguments}}
-#### Arguments
-<table>
+const mdTableQueries = `<table>
 	<thead>
 		<tr>
 			<th>Name</th>
@@ -232,16 +226,12 @@ const mdQueries = `{{range .Fields -}}
 		</tr>
 	{{- end}}
 	</tbody>
-</table>
-{{- end}}
+</table>`
 
----
+const mdQueries = `{{range .Fields -}}
+### {{.Name}}
+**Type:** [{{.Type}}]({{anchor .Type.Name "type"}})
 
-{{end -}}
-`
-
-const mdMutations = `{{range .Fields -}}
-### {{.Name}} <a href="{{anchor .Name "field"}}"></a>
 {{.Description | desc}}
 
 {{- if .Directives}}
@@ -249,15 +239,15 @@ const mdMutations = `{{range .Fields -}}
 {{end}}
 
 {{- if .Arguments}}
-#### Input fields
-{{- range .Arguments}}
-- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{anchor .Type.Name "type"}}))
-{{- end}}
+#### Arguments
+{{indentTemplate "tableQueries" . 0 | minify}}
 {{- end}}
 
-{{- if fields .Type}}
-#### Return fields
-<table>
+---
+{{end -}}
+`
+
+const mdTableMutations = `<table>
 	<thead>
 		<tr>
 			<th>Name</th>
@@ -275,66 +265,75 @@ const mdMutations = `{{range .Fields -}}
 		</tr>
 	{{- end}}
 	</tbody>
-</table>
+</table>`
+
+const mdMutations = `{{range .Fields -}}
+### {{.Name}}
+{{.Description | desc}}
+
+{{- if .Directives}}
+{{indentTemplate "directives" . 0 | minify}}
+{{end}}
+
+{{- if .Arguments}}
+#### Input fields
+{{- range .Arguments}}
+- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{anchor .Type.Name "type"}}))
+{{- end}}
+{{- end}}
+
+{{- if fields .Type}}
+#### Return fields
+{{indentTemplate "tableMutations" . 0 | minify}}
 {{- end}}
 
 ---
-
 {{end -}}
 `
 
 const mdSchema = `# Reference
-{{if .Query}}
+{{if .Query -}}
 ## Queries
-{{template "queries" .Query}}
-{{end -}}
-{{if .Mutation}}
+{{template "queries" .Query}}{{end -}}
+{{if .Mutation -}}
 ## Mutations
-{{template "mutations" .Mutation}}
-{{end -}}
-{{if .Subscription}}
+{{template "mutations" .Mutation}}{{end -}}
+{{if .Subscription -}}
 ## Subscriptions
-{{template "queries" .Subscription}}
-{{end -}}
+{{template "queries" .Subscription}}{{end -}}
 {{if .Objects}}
 ## Objects
-{{range .Objects}}
-{{template "object" .}}
+{{range .Objects}}{{template "object" .}}
 ---
 {{end -}}
 {{end -}}
 {{if .Interfaces}}
 ## Interfaces
-{{range .Interfaces}}
-{{template "interface" .}}
+{{range .Interfaces}}{{template "interface" .}}
 ---
 {{end -}}
 {{end -}}
 {{if .Enums}}
 ## Enums
-{{range .Enums}}
-{{template "enum" .}}
+{{range .Enums}}{{template "enum" .}}
 ---
 {{end -}}
 {{end -}}
 {{if .Unions}}
 ## Unions
-{{range .Unions}}
-{{template "union" .}}
+{{range .Unions}}{{template "union" .}}
 ---
 {{end -}}
 {{end -}}
 {{if .Inputs}}
 ## Input objects
-{{range .Inputs}}
-{{template "input" .}}
+{{range .Inputs}}{{template "input" .}}
 ---
 {{end -}}
 {{end -}}
 {{if .Scalars}}
 ## Scalars
-{{range .Scalars}}
-{{template "scalar" .}}
+{{range .Scalars}}{{template "scalar" .}}
 ---
 {{end -}}
 {{end -}}
@@ -368,6 +367,9 @@ func valid(f interface{}) bool {
 }
 
 func filterFields(def *ast.Definition) *ast.Definition {
+	if def == nil {
+		return def
+	}
 	res := make(ast.FieldList, 0, len(def.Fields))
 	for i := range def.Fields {
 		if valid(def.Fields[i]) {
@@ -450,6 +452,11 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	template.Must(t.New("arguments").Parse(mdArguments))
 	template.Must(t.New("directives").Parse(mdDirectives))
 	template.Must(t.New("scalar").Parse(mdScalar))
+	template.Must(t.New("tableObject").Parse(mdTableObject))
+	template.Must(t.New("tableQueries").Parse(mdTableQueries))
+	template.Must(t.New("tableMutations").Parse(mdTableMutations))
+	template.Must(t.New("tableInput").Parse(mdTableInput))
+	template.Must(t.New("tableInterface").Parse(mdTableInterface))
 	template.Must(t.New("object").Parse(mdObject))
 	template.Must(t.New("interface").Parse(mdInterface))
 	template.Must(t.New("union").Parse(mdUnion))
