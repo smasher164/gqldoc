@@ -1,13 +1,11 @@
 package gqldoc
 
 // TODO table of contents
-// TODO header uniqueness. fix linking.
-// Minify html. markdown output needs to be under 30K.
 
 import (
-	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -349,6 +347,9 @@ type md struct {
 	Unions       []*ast.Definition
 	Inputs       []*ast.Definition
 	Scalars      []*ast.Definition
+
+	count  map[string]int
+	anchor map[string]map[string]string
 }
 
 func valid(f interface{}) bool {
@@ -366,22 +367,25 @@ func valid(f interface{}) bool {
 	return !strings.HasPrefix(name, "_")
 }
 
-func filterFields(def *ast.Definition) *ast.Definition {
+func (md *md) filterFields(def *ast.Definition) *ast.Definition {
 	if def == nil {
 		return def
 	}
 	res := make(ast.FieldList, 0, len(def.Fields))
-	for i := range def.Fields {
-		if valid(def.Fields[i]) {
-			res = append(res, def.Fields[i])
+	for _, field := range def.Fields {
+		if valid(field) {
+			res = append(res, field)
 		}
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Name < res[j].Name })
+	for _, field := range res {
+		md.updateAnchor(field.Name, "field")
+	}
 	def.Fields = res
 	return def
 }
 
-func filterKind(fields map[string]*ast.Definition, kind ast.DefinitionKind) []*ast.Definition {
+func (md *md) filterKind(fields map[string]*ast.Definition, kind ast.DefinitionKind) []*ast.Definition {
 	res := make([]*ast.Definition, 0, len(fields))
 	for _, field := range fields {
 		if field.Kind == kind && valid(field) {
@@ -389,21 +393,40 @@ func filterKind(fields map[string]*ast.Definition, kind ast.DefinitionKind) []*a
 		}
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Name < res[j].Name })
+	for _, field := range res {
+		md.updateAnchor(field.Name, "type")
+	}
 	return res
 }
 
-func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
-	md := md{
-		Query:        filterFields(schema.Query),
-		Mutation:     filterFields(schema.Mutation),
-		Subscription: filterFields(schema.Subscription),
-		Objects:      filterKind(schema.Types, ast.Object),
-		Interfaces:   filterKind(schema.Types, ast.Interface),
-		Enums:        filterKind(schema.Types, ast.Enum),
-		Unions:       filterKind(schema.Types, ast.Union),
-		Inputs:       filterKind(schema.Types, ast.InputObject),
-		Scalars:      filterKind(schema.Types, ast.Scalar),
+func (md *md) updateAnchor(key, typ string) {
+	k := strings.ToLower(key)
+	c := md.count[k]
+	ref := "#" + k
+	if c > 0 {
+		ref += "-" + strconv.Itoa(c)
 	}
+	if _, ok := md.anchor[typ]; !ok {
+		md.anchor[typ] = make(map[string]string)
+	}
+	md.anchor[typ][key] = ref
+	md.count[k]++
+}
+
+func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
+	md := &md{
+		count:  make(map[string]int),
+		anchor: make(map[string]map[string]string),
+	}
+	md.Query = md.filterFields(schema.Query)
+	md.Mutation = md.filterFields(schema.Mutation)
+	md.Subscription = md.filterFields(schema.Subscription)
+	md.Objects = md.filterKind(schema.Types, ast.Object)
+	md.Interfaces = md.filterKind(schema.Types, ast.Interface)
+	md.Enums = md.filterKind(schema.Types, ast.Enum)
+	md.Unions = md.filterKind(schema.Types, ast.Union)
+	md.Inputs = md.filterKind(schema.Types, ast.InputObject)
+	md.Scalars = md.filterKind(schema.Types, ast.Scalar)
 	gm := goldmark.New(
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
@@ -431,13 +454,8 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		"anchor": func(s string, T string) (string, error) {
-			switch T {
-			case "field", "type":
-				return "#" + T + "-" + strings.ToLower(s), nil
-			default:
-				return "", fmt.Errorf("unknown anchor type %q", T)
-			}
+		"anchor": func(s, T string) string {
+			return md.anchor[T][s]
 		},
 		"implementers": func(def *ast.Definition) []*ast.Definition { return schema.GetPossibleTypes(def) },
 		"fields": func(T *ast.Type) ast.FieldList {
