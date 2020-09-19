@@ -399,10 +399,15 @@ func (md *md) filterKind(fields map[string]*ast.Definition, kind ast.DefinitionK
 	return res
 }
 
-func (md *md) updateAnchor(key, typ string) {
+func (md *md) updateAnchor(key, typ string, refs ...string) {
 	k := strings.ToLower(key)
 	c := md.count[k]
-	ref := "#" + k
+	var ref string
+	if len(refs) == 1 {
+		ref = refs[0]
+	} else {
+		ref = "#" + k
+	}
 	if c > 0 {
 		ref += "-" + strconv.Itoa(c)
 	}
@@ -418,8 +423,11 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 		count:  make(map[string]int),
 		anchor: make(map[string]map[string]string),
 	}
+	md.updateAnchor("Query", "type", "#queries")
 	md.Query = md.filterFields(schema.Query)
+	md.updateAnchor("Mutation", "type", "#mutations")
 	md.Mutation = md.filterFields(schema.Mutation)
+	md.updateAnchor("Subscription", "type", "#subscriptions")
 	md.Subscription = md.filterFields(schema.Subscription)
 	md.Objects = md.filterKind(schema.Types, ast.Object)
 	md.Interfaces = md.filterKind(schema.Types, ast.Interface)
