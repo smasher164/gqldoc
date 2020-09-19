@@ -1,7 +1,5 @@
 package gqldoc
 
-// TODO table of contents
-
 import (
 	"io"
 	"sort"
@@ -290,6 +288,8 @@ const mdMutations = `{{range .Fields -}}
 `
 
 const mdSchema = `# Reference
+{{- template "toc" .}}
+
 {{if .Query -}}
 ## Queries
 {{template "queries" .Query}}{{end -}}
@@ -337,6 +337,62 @@ const mdSchema = `# Reference
 {{end -}}
 `
 
+const mdTOC = `{{with .Query}}
+- [Queries]({{anchor "Query" "type"}})
+{{- range .Fields}}
+	- [{{.Name}}]({{anchor .Name "field"}})
+{{- end}}
+{{- end}}
+{{- with .Mutation}}
+- [Mutations]({{anchor "Mutation" "type"}})
+{{- range .Fields}}
+	- [{{.Name}}]({{anchor .Name "field"}})
+{{- end}}
+{{- end}}
+{{- with .Subscription}}
+- [Subscriptions]({{anchor "Subscription" "type"}})
+{{- range .Fields}}
+	- [{{.Name}}]({{anchor .Name "field"}})
+{{- end}}
+{{- end}}
+{{- with .Objects}}
+- [Objects]({{anchor "Objects" "type"}})
+{{- range .}}
+	- [{{.Name}}]({{anchor .Name "type"}})
+{{- end}}
+{{- end}}
+{{- with .Interfaces}}
+- [Interfaces]({{anchor "Interfaces" "type"}})
+{{- range .}}
+	- [{{.Name}}]({{anchor .Name "type"}})
+{{- end}}
+{{- end}}
+{{- with .Enums}}
+- [Enums]({{anchor "Enums" "type"}})
+{{- range .}}
+	- [{{.Name}}]({{anchor .Name "type"}})
+{{- end}}
+{{- end}}
+{{- with .Unions}}
+- [Unions]({{anchor "Unions" "type"}})
+{{- range .}}
+	- [{{.Name}}]({{anchor .Name "type"}})
+{{- end}}
+{{- end}}
+{{- with .Inputs}}
+- [Input objects]({{anchor "Input objects" "type"}})
+{{- range .}}
+	- [{{.Name}}]({{anchor .Name "type"}})
+{{- end}}
+{{- end}}
+{{- with .Scalars}}
+- [Scalars]({{anchor "Scalars" "type"}})
+{{- range .}}
+	- [{{.Name}}]({{anchor .Name "type"}})
+{{- end}}
+{{- end}}
+`
+
 type md struct {
 	Query        *ast.Definition
 	Mutation     *ast.Definition
@@ -378,9 +434,6 @@ func (md *md) filterFields(def *ast.Definition) *ast.Definition {
 		}
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Name < res[j].Name })
-	for _, field := range res {
-		md.updateAnchor(field.Name, "field")
-	}
 	def.Fields = res
 	return def
 }
@@ -393,14 +446,11 @@ func (md *md) filterKind(fields map[string]*ast.Definition, kind ast.DefinitionK
 		}
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Name < res[j].Name })
-	for _, field := range res {
-		md.updateAnchor(field.Name, "type")
-	}
 	return res
 }
 
 func (md *md) updateAnchor(key, typ string, refs ...string) {
-	k := strings.ToLower(key)
+	k := strings.ReplaceAll(strings.ToLower(key), " ", "-")
 	c := md.count[k]
 	var ref string
 	if len(refs) == 1 {
@@ -418,23 +468,59 @@ func (md *md) updateAnchor(key, typ string, refs ...string) {
 	md.count[k]++
 }
 
+func (md *md) updateAnchors(name, ref string, defs interface{}) {
+	switch defs := defs.(type) {
+	case *ast.Definition:
+		if defs == nil || len(defs.Fields) == 0 {
+			return
+		}
+		md.updateAnchor(name, "type", ref)
+		for _, field := range defs.Fields {
+			md.updateAnchor(field.Name, "field")
+		}
+	case []*ast.Definition:
+		if len(defs) == 0 {
+			return
+		}
+		md.updateAnchor(name, "type", ref)
+		for _, field := range defs {
+			md.updateAnchor(field.Name, "type")
+		}
+	}
+}
+
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	md := &md{
 		count:  make(map[string]int),
 		anchor: make(map[string]map[string]string),
 	}
-	md.updateAnchor("Query", "type", "#queries")
 	md.Query = md.filterFields(schema.Query)
-	md.updateAnchor("Mutation", "type", "#mutations")
+	md.updateAnchors("Query", "#queries", md.Query)
+
 	md.Mutation = md.filterFields(schema.Mutation)
-	md.updateAnchor("Subscription", "type", "#subscriptions")
+	md.updateAnchors("Mutation", "#mutations", md.Mutation)
+
 	md.Subscription = md.filterFields(schema.Subscription)
+	md.updateAnchors("Subscription", "#subscriptions", md.Subscription)
+
 	md.Objects = md.filterKind(schema.Types, ast.Object)
+	md.updateAnchors("Objects", "#objects", md.Objects)
+
 	md.Interfaces = md.filterKind(schema.Types, ast.Interface)
+	md.updateAnchors("Interfaces", "#interfaces", md.Interfaces)
+
 	md.Enums = md.filterKind(schema.Types, ast.Enum)
+	md.updateAnchors("Enums", "#enums", md.Enums)
+
 	md.Unions = md.filterKind(schema.Types, ast.Union)
+	md.updateAnchors("Unions", "#unions", md.Unions)
+
 	md.Inputs = md.filterKind(schema.Types, ast.InputObject)
+	md.updateAnchors("Input objects", "#input-objects", md.Inputs)
+
 	md.Scalars = md.filterKind(schema.Types, ast.Scalar)
+	md.updateAnchors("Scalars", "#scalars", md.Scalars)
+
 	gm := goldmark.New(
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
@@ -490,6 +576,7 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	template.Must(t.New("input").Parse(mdInput))
 	template.Must(t.New("queries").Parse(mdQueries))
 	template.Must(t.New("mutations").Parse(mdMutations))
+	template.Must(t.New("toc").Parse(mdTOC))
 	template.Must(t.Parse(mdSchema))
 	return t.Execute(dst, md)
 }
