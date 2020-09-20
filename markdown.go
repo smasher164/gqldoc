@@ -46,7 +46,7 @@ const mdUnion = `### {{.Name}}
 
 #### Possible types
 {{- range .Types}}
-- [{{.}}]({{index $.Anchor "type" .}})
+- [{{.}}]({{index $.MD.Anchor "type" .}})
 {{- end}}
 `
 
@@ -61,7 +61,7 @@ const mdTableInput = `<table>
 	{{- range .Fields}}
 		<tr>
 			<td>
-				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+				<strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
 			</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
@@ -88,7 +88,7 @@ const mdArguments = `<table>
 	{{- range .ArgumentDefinitionList}}
 		<tr>
 			<td>
-				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+				<strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
 				<br>
 				{{- wordwrap .Description 69 | desc}}
 			</td>
@@ -127,14 +127,14 @@ const mdTableInterface = `<table>
 	{{- range .Fields}}
 		<tr>
 			<td>
-				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+				<strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
 			</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
 			{{- end}}
 			{{- if .Arguments}}
-			{{indentTemplate "arguments" (wrap .Arguments $.Anchor) 3 | minify}}
+			{{indentTemplate "arguments" (wrapMD .Arguments $.MD) 3 | minify}}
 			{{- end}}</td>
 		</tr>
 	{{- end}}
@@ -151,7 +151,7 @@ const mdInterface = `### {{.Name}}
 {{- if implementers .Definition}}
 #### Implemented by
 {{- range implementers .Definition}}
-- [<code>{{.Name}}</code>]({{index $.Anchor "type" .Name}})
+- [<code>{{.Name}}</code>]({{index $.MD.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 
@@ -170,14 +170,14 @@ const mdTableObject = `<table>
 	{{- range .Fields}}
 		<tr>
 			<td>
-				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+				<strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
 			</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
 			{{- end}}
 			{{- if .Arguments}}
-			{{indentTemplate "arguments" (wrap .Arguments $.Anchor) 3 | minify}}
+			{{indentTemplate "arguments" (wrapMD .Arguments $.MD) 3 | minify}}
 			{{- end}}</td>
 		</tr>
 	{{- end}}
@@ -194,7 +194,7 @@ const mdObject = `### {{.Name}}
 {{- if .Interfaces}}
 #### Implements
 {{- range .Interfaces}}
-- [<code>{{.}}</code>]({{index $.Anchor "type" .}})
+- [<code>{{.}}</code>]({{index $.MD.Anchor "type" .}})
 {{- end}}
 {{- end}}
 {{- if .Fields}}
@@ -213,7 +213,7 @@ const mdTableQueries = `<table>
 	<tbody>
 	{{- range .Arguments}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
@@ -225,7 +225,7 @@ const mdTableQueries = `<table>
 
 const mdQueries = `{{range .Fields -}}
 ### {{.Name}}
-**Type:** [{{.Type}}]({{index $.Anchor "type" .Type.Name}})
+**Type:** [{{.Type}}]({{index $.MD.Anchor "type" .Type.Name}})
 
 {{.Description | desc}}
 
@@ -235,7 +235,7 @@ const mdQueries = `{{range .Fields -}}
 
 {{- if .Arguments}}
 #### Arguments
-{{indentTemplate "tableQueries" (wrap . $.Anchor) 0 | minify}}
+{{indentTemplate "tableQueries" (wrapMD . $.MD) 0 | minify}}
 {{- end}}
 
 ---
@@ -252,7 +252,7 @@ const mdTableMutations = `<table>
 	<tbody>
 	{{- range fields .Type}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
@@ -273,13 +273,13 @@ const mdMutations = `{{range .Fields -}}
 {{- if .Arguments}}
 #### Input fields
 {{- range .Arguments}}
-- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{index $.Anchor "type" .Type.Name}}))
+- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{index $.MD.Anchor "type" .Type.Name}}))
 {{- end}}
 {{- end}}
 
 {{- if fields .Type}}
 #### Return fields
-{{indentTemplate "tableMutations" (wrap . $.Anchor) 0 | minify}}
+{{indentTemplate "tableMutations" (wrapMD . $.MD) 0 | minify}}
 {{- end}}
 
 ---
@@ -291,22 +291,22 @@ const mdSchema = `# Reference
 
 {{if .Query -}}
 ## Queries
-{{template "queries" (wrap .Query $.Anchor)}}{{end -}}
+{{template "queries" (wrapMD .Query $)}}{{end -}}
 {{if .Mutation -}}
 ## Mutations
-{{template "mutations" (wrap .Mutation $.Anchor)}}{{end -}}
+{{template "mutations" (wrapMD .Mutation $)}}{{end -}}
 {{if .Subscription -}}
 ## Subscriptions
-{{template "queries" (wrap .Subscription $.Anchor)}}{{end -}}
+{{template "queries" (wrapMD .Subscription $)}}{{end -}}
 {{if .Objects}}
 ## Objects
-{{range .Objects}}{{template "object" (wrap . $.Anchor)}}
+{{range .Objects}}{{template "object" (wrapMD . $)}}
 ---
 {{end -}}
 {{end -}}
 {{if .Interfaces}}
 ## Interfaces
-{{range .Interfaces}}{{template "interface" (wrap . $.Anchor)}}
+{{range .Interfaces}}{{template "interface" (wrapMD . $)}}
 ---
 {{end -}}
 {{end -}}
@@ -318,13 +318,13 @@ const mdSchema = `# Reference
 {{end -}}
 {{if .Unions}}
 ## Unions
-{{range .Unions}}{{template "union" (wrap . $.Anchor)}}
+{{range .Unions}}{{template "union" (wrapMD . $)}}
 ---
 {{end -}}
 {{end -}}
 {{if .Inputs}}
 ## Input objects
-{{range .Inputs}}{{template "input" (wrap . $.Anchor)}}
+{{range .Inputs}}{{template "input" (wrapMD . $)}}
 ---
 {{end -}}
 {{end -}}
@@ -392,7 +392,7 @@ const mdTOC = `{{with .Query}}
 {{- end}}
 `
 
-type md struct {
+type markdown struct {
 	Query        *ast.Definition
 	Mutation     *ast.Definition
 	Subscription *ast.Definition
@@ -422,7 +422,7 @@ func valid(f interface{}) bool {
 	return !strings.HasPrefix(name, "_")
 }
 
-func (md *md) filterFields(def *ast.Definition) *ast.Definition {
+func (md *markdown) filterFields(def *ast.Definition) *ast.Definition {
 	if def == nil {
 		return def
 	}
@@ -437,7 +437,7 @@ func (md *md) filterFields(def *ast.Definition) *ast.Definition {
 	return def
 }
 
-func (md *md) filterKind(fields map[string]*ast.Definition, kind ast.DefinitionKind) []*ast.Definition {
+func (md *markdown) filterKind(fields map[string]*ast.Definition, kind ast.DefinitionKind) []*ast.Definition {
 	res := make([]*ast.Definition, 0, len(fields))
 	for _, field := range fields {
 		if field.Kind == kind && valid(field) {
@@ -448,7 +448,7 @@ func (md *md) filterKind(fields map[string]*ast.Definition, kind ast.DefinitionK
 	return res
 }
 
-func (md *md) updateAnchor(key, typ string, refs ...string) {
+func (md *markdown) updateAnchor(key, typ string, refs ...string) {
 	k := strings.ReplaceAll(strings.ToLower(key), " ", "-")
 	c := md.count[k]
 	var ref string
@@ -467,7 +467,7 @@ func (md *md) updateAnchor(key, typ string, refs ...string) {
 	md.count[k]++
 }
 
-func (md *md) updateAnchors(name, ref string, defs interface{}) {
+func (md *markdown) updateAnchors(name, ref string, defs interface{}) {
 	switch defs := defs.(type) {
 	case *ast.Definition:
 		if defs == nil || len(defs.Fields) == 0 {
@@ -510,7 +510,7 @@ func init() {
 }
 
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
-	md := &md{
+	md := &markdown{
 		count:  make(map[string]int),
 		Anchor: make(map[string]map[string]string),
 	}
@@ -586,25 +586,25 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			m.AddFunc("text/html", mhtml.Minify)
 			return m.String("text/html", s)
 		},
-		"wrap": func(v interface{}, anchor map[string]map[string]string) interface{} {
+		"wrapMD": func(v interface{}, md *markdown) interface{} {
 			switch v := v.(type) {
 			case *ast.Definition:
 				r := struct {
 					*ast.Definition
-					Anchor map[string]map[string]string
-				}{v, anchor}
+					MD *markdown
+				}{v, md}
 				return r
 			case *ast.FieldDefinition:
 				r := struct {
 					*ast.FieldDefinition
-					Anchor map[string]map[string]string
-				}{v, anchor}
+					MD *markdown
+				}{v, md}
 				return r
 			case ast.ArgumentDefinitionList:
 				r := struct {
 					ast.ArgumentDefinitionList
-					Anchor map[string]map[string]string
-				}{v, anchor}
+					MD *markdown
+				}{v, md}
 				return r
 			}
 			return nil
