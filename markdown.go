@@ -1,7 +1,5 @@
 package gqldoc
 
-// precompile templates
-
 import (
 	"io"
 	"sort"
@@ -392,6 +390,91 @@ const mdTOC = `{{with .Query}}
 {{- end}}
 `
 
+var mdTemplate *template.Template
+
+func init() {
+	gm := goldmark.New(
+		goldmark.WithRendererOptions(
+			html.WithHardWraps(),
+		),
+	)
+	mdTemplate = template.New("schema")
+	mdTemplate = mdTemplate.Funcs(template.FuncMap{
+		"indentTemplate": func(name string, v interface{}, tabs int) (string, error) {
+			var buf strings.Builder
+			if err := mdTemplate.ExecuteTemplate(&buf, name, v); err != nil {
+				return "", err
+			}
+			prefix := strings.Repeat("\t", tabs)
+			split := strings.Split(buf.String(), "\n")
+			for i := range split {
+				if i != 0 {
+					split[i] = prefix + split[i]
+				}
+			}
+			return strings.Join(split, "\n"), nil
+		},
+		"desc": func(input string) (string, error) {
+			var buf strings.Builder
+			err := gm.Convert([]byte(input), &buf)
+			s := strings.TrimSuffix(buf.String(), "\n")
+			s = strings.TrimPrefix(s, "<p>")
+			s = strings.TrimSuffix(s, "</p>")
+			return s, err
+		},
+		"wordwrap": func(s string, i int) string {
+			return wordwrap.WrapString(s, uint(i))
+		},
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"minify": func(s string) (string, error) {
+			m := minify.New()
+			m.AddFunc("text/html", mhtml.Minify)
+			return m.String("text/html", s)
+		},
+		"wrapMD": func(v interface{}, md *markdown) interface{} {
+			switch v := v.(type) {
+			case *ast.Definition:
+				r := struct {
+					*ast.Definition
+					MD *markdown
+				}{v, md}
+				return r
+			case *ast.FieldDefinition:
+				r := struct {
+					*ast.FieldDefinition
+					MD *markdown
+				}{v, md}
+				return r
+			case ast.ArgumentDefinitionList:
+				r := struct {
+					ast.ArgumentDefinitionList
+					MD *markdown
+				}{v, md}
+				return r
+			}
+			return nil
+		},
+	})
+	template.Must(mdTemplate.New("arguments").Parse(mdArguments))
+	template.Must(mdTemplate.New("directives").Parse(mdDirectives))
+	template.Must(mdTemplate.New("scalar").Parse(mdScalar))
+	template.Must(mdTemplate.New("tableObject").Parse(mdTableObject))
+	template.Must(mdTemplate.New("tableQueries").Parse(mdTableQueries))
+	template.Must(mdTemplate.New("tableMutations").Parse(mdTableMutations))
+	template.Must(mdTemplate.New("tableInput").Parse(mdTableInput))
+	template.Must(mdTemplate.New("tableInterface").Parse(mdTableInterface))
+	template.Must(mdTemplate.New("object").Parse(mdObject))
+	template.Must(mdTemplate.New("interface").Parse(mdInterface))
+	template.Must(mdTemplate.New("union").Parse(mdUnion))
+	template.Must(mdTemplate.New("enum").Parse(mdEnum))
+	template.Must(mdTemplate.New("input").Parse(mdInput))
+	template.Must(mdTemplate.New("queries").Parse(mdQueries))
+	template.Must(mdTemplate.New("mutations").Parse(mdMutations))
+	template.Must(mdTemplate.New("toc").Parse(mdTOC))
+	template.Must(mdTemplate.Parse(mdSchema))
+}
+
 type markdown struct {
 	Query        *ast.Definition
 	Mutation     *ast.Definition
@@ -490,91 +573,6 @@ func (md *markdown) updateAnchors(name, ref string, defs interface{}) {
 	}
 }
 
-var mdTemplate *template.Template
-
-func init() {
-	gm := goldmark.New(
-		goldmark.WithRendererOptions(
-			html.WithHardWraps(),
-		),
-	)
-	mdTemplate = template.New("schema")
-	mdTemplate = mdTemplate.Funcs(template.FuncMap{
-		"indentTemplate": func(name string, v interface{}, tabs int) (string, error) {
-			var buf strings.Builder
-			if err := mdTemplate.ExecuteTemplate(&buf, name, v); err != nil {
-				return "", err
-			}
-			prefix := strings.Repeat("\t", tabs)
-			split := strings.Split(buf.String(), "\n")
-			for i := range split {
-				if i != 0 {
-					split[i] = prefix + split[i]
-				}
-			}
-			return strings.Join(split, "\n"), nil
-		},
-		"desc": func(input string) (string, error) {
-			var buf strings.Builder
-			err := gm.Convert([]byte(input), &buf)
-			s := strings.TrimSuffix(buf.String(), "\n")
-			s = strings.TrimPrefix(s, "<p>")
-			s = strings.TrimSuffix(s, "</p>")
-			return s, err
-		},
-		"wordwrap": func(s string, i int) string {
-			return wordwrap.WrapString(s, uint(i))
-		},
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
-		"minify": func(s string) (string, error) {
-			m := minify.New()
-			m.AddFunc("text/html", mhtml.Minify)
-			return m.String("text/html", s)
-		},
-		"wrapMD": func(v interface{}, md *markdown) interface{} {
-			switch v := v.(type) {
-			case *ast.Definition:
-				r := struct {
-					*ast.Definition
-					MD *markdown
-				}{v, md}
-				return r
-			case *ast.FieldDefinition:
-				r := struct {
-					*ast.FieldDefinition
-					MD *markdown
-				}{v, md}
-				return r
-			case ast.ArgumentDefinitionList:
-				r := struct {
-					ast.ArgumentDefinitionList
-					MD *markdown
-				}{v, md}
-				return r
-			}
-			return nil
-		},
-	})
-	template.Must(mdTemplate.New("arguments").Parse(mdArguments))
-	template.Must(mdTemplate.New("directives").Parse(mdDirectives))
-	template.Must(mdTemplate.New("scalar").Parse(mdScalar))
-	template.Must(mdTemplate.New("tableObject").Parse(mdTableObject))
-	template.Must(mdTemplate.New("tableQueries").Parse(mdTableQueries))
-	template.Must(mdTemplate.New("tableMutations").Parse(mdTableMutations))
-	template.Must(mdTemplate.New("tableInput").Parse(mdTableInput))
-	template.Must(mdTemplate.New("tableInterface").Parse(mdTableInterface))
-	template.Must(mdTemplate.New("object").Parse(mdObject))
-	template.Must(mdTemplate.New("interface").Parse(mdInterface))
-	template.Must(mdTemplate.New("union").Parse(mdUnion))
-	template.Must(mdTemplate.New("enum").Parse(mdEnum))
-	template.Must(mdTemplate.New("input").Parse(mdInput))
-	template.Must(mdTemplate.New("queries").Parse(mdQueries))
-	template.Must(mdTemplate.New("mutations").Parse(mdMutations))
-	template.Must(mdTemplate.New("toc").Parse(mdTOC))
-	template.Must(mdTemplate.Parse(mdSchema))
-}
-
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	md := &markdown{
 		count:        make(map[string]int),
@@ -584,30 +582,21 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	}
 	md.Query = md.filterFields(schema.Query)
 	md.updateAnchors("Query", "#queries", md.Query)
-
 	md.Mutation = md.filterFields(schema.Mutation)
 	md.updateAnchors("Mutation", "#mutations", md.Mutation)
-
 	md.Subscription = md.filterFields(schema.Subscription)
 	md.updateAnchors("Subscription", "#subscriptions", md.Subscription)
-
 	md.Objects = md.filterKind(schema.Types, ast.Object)
 	md.updateAnchors("Objects", "#objects", md.Objects)
-
 	md.Interfaces = md.filterKind(schema.Types, ast.Interface)
 	md.updateAnchors("Interfaces", "#interfaces", md.Interfaces)
-
 	md.Enums = md.filterKind(schema.Types, ast.Enum)
 	md.updateAnchors("Enums", "#enums", md.Enums)
-
 	md.Unions = md.filterKind(schema.Types, ast.Union)
 	md.updateAnchors("Unions", "#unions", md.Unions)
-
 	md.Inputs = md.filterKind(schema.Types, ast.InputObject)
 	md.updateAnchors("Input objects", "#input-objects", md.Inputs)
-
 	md.Scalars = md.filterKind(schema.Types, ast.Scalar)
 	md.updateAnchors("Scalars", "#scalars", md.Scalars)
-
 	return mdTemplate.Execute(dst, md)
 }
