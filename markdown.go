@@ -1,5 +1,7 @@
 package gqldoc
 
+// precompile templates
+
 import (
 	"io"
 	"sort"
@@ -14,17 +16,6 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/renderer/html"
 )
-
-func indent(tabs int, input string) string {
-	prefix := strings.Repeat("\t", tabs)
-	split := strings.Split(input, "\n")
-	for i := range split {
-		if i != 0 {
-			split[i] = prefix + split[i]
-		}
-	}
-	return strings.Join(split, "\n")
-}
 
 const mdScalar = `### {{.Name}}
 {{.Description | desc}}
@@ -55,7 +46,7 @@ const mdUnion = `### {{.Name}}
 
 #### Possible types
 {{- range .Types}}
-- [{{.}}]({{anchor . "type"}})
+- [{{.}}]({{index $.Anchor "type" .}})
 {{- end}}
 `
 
@@ -69,7 +60,9 @@ const mdTableInput = `<table>
 	<tbody>
 	{{- range .Fields}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
+			<td>
+				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+			</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
@@ -92,12 +85,12 @@ const mdInput = `### {{.Name}}
 const mdArguments = `<table>
 	<thead><tr><th>Arguments</th></tr></thead>
 	<tbody>
-	{{- range .}}
+	{{- range .ArgumentDefinitionList}}
 		<tr>
 			<td>
-				<strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)
+				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
 				<br>
-				{{- wrap .Description 69 | desc}}
+				{{- wordwrap .Description 69 | desc}}
 			</td>
 		</tr>
 	{{- end}}
@@ -113,7 +106,9 @@ const mdDirectives = `{{range .Directives -}}
 	<tbody>
 		{{- range .Arguments}}
 		<tr>
-			<td><strong>{{.Name}}</strong>: {{len .Name | add 1 | sub 69 | wrap .Value.String | desc}}</td>
+			<td>
+				<strong>{{.Name}}</strong>: {{len .Name | add 1 | sub 69 | wordwrap .Value.String | desc}}
+			</td>
 		</tr>
 		{{- end}}
 	</tbody>
@@ -131,13 +126,15 @@ const mdTableInterface = `<table>
 	<tbody>
 	{{- range .Fields}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
+			<td>
+				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+			</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
 			{{- end}}
 			{{- if .Arguments}}
-			{{indentTemplate "arguments" .Arguments 3 | minify}}
+			{{indentTemplate "arguments" (wrap .Arguments $.Anchor) 3 | minify}}
 			{{- end}}</td>
 		</tr>
 	{{- end}}
@@ -151,10 +148,10 @@ const mdInterface = `### {{.Name}}
 {{indentTemplate "directives" . 0 | minify}}
 {{end}}
 
-{{- if implementers .}}
+{{- if implementers .Definition}}
 #### Implemented by
-{{- range implementers .}}
-- [<code>{{.Name}}</code>]({{anchor .Name "type"}})
+{{- range implementers .Definition}}
+- [<code>{{.Name}}</code>]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 
@@ -172,13 +169,15 @@ const mdTableObject = `<table>
 	<tbody>
 	{{- range .Fields}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
+			<td>
+				<strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)
+			</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
 			{{- end}}
 			{{- if .Arguments}}
-			{{indentTemplate "arguments" .Arguments 3 | minify}}
+			{{indentTemplate "arguments" (wrap .Arguments $.Anchor) 3 | minify}}
 			{{- end}}</td>
 		</tr>
 	{{- end}}
@@ -195,7 +194,7 @@ const mdObject = `### {{.Name}}
 {{- if .Interfaces}}
 #### Implements
 {{- range .Interfaces}}
-- [<code>{{.}}</code>]({{anchor . "type"}})
+- [<code>{{.}}</code>]({{index $.Anchor "type" .}})
 {{- end}}
 {{- end}}
 {{- if .Fields}}
@@ -214,7 +213,7 @@ const mdTableQueries = `<table>
 	<tbody>
 	{{- range .Arguments}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
@@ -226,7 +225,7 @@ const mdTableQueries = `<table>
 
 const mdQueries = `{{range .Fields -}}
 ### {{.Name}}
-**Type:** [{{.Type}}]({{anchor .Type.Name "type"}})
+**Type:** [{{.Type}}]({{index $.Anchor "type" .Type.Name}})
 
 {{.Description | desc}}
 
@@ -236,7 +235,7 @@ const mdQueries = `{{range .Fields -}}
 
 {{- if .Arguments}}
 #### Arguments
-{{indentTemplate "tableQueries" . 0 | minify}}
+{{indentTemplate "tableQueries" (wrap . $.Anchor) 0 | minify}}
 {{- end}}
 
 ---
@@ -253,7 +252,7 @@ const mdTableMutations = `<table>
 	<tbody>
 	{{- range fields .Type}}
 		<tr>
-			<td><strong>{{.Name}}</strong> (<a href="{{anchor .Type.Name "type"}}"><strong>{{.Type}}</strong></a>)</td>
+			<td><strong>{{.Name}}</strong> (<a href="{{index $.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
 			{{- if .Directives}}
 			{{indentTemplate "directives" . 3 | minify}}
@@ -274,13 +273,13 @@ const mdMutations = `{{range .Fields -}}
 {{- if .Arguments}}
 #### Input fields
 {{- range .Arguments}}
-- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{anchor .Type.Name "type"}}))
+- <code>{{.Name}}</code>([<code>{{.Type}}</code>]({{index $.Anchor "type" .Type.Name}}))
 {{- end}}
 {{- end}}
 
 {{- if fields .Type}}
 #### Return fields
-{{indentTemplate "tableMutations" . 0 | minify}}
+{{indentTemplate "tableMutations" (wrap . $.Anchor) 0 | minify}}
 {{- end}}
 
 ---
@@ -292,22 +291,22 @@ const mdSchema = `# Reference
 
 {{if .Query -}}
 ## Queries
-{{template "queries" .Query}}{{end -}}
+{{template "queries" (wrap .Query $.Anchor)}}{{end -}}
 {{if .Mutation -}}
 ## Mutations
-{{template "mutations" .Mutation}}{{end -}}
+{{template "mutations" (wrap .Mutation $.Anchor)}}{{end -}}
 {{if .Subscription -}}
 ## Subscriptions
-{{template "queries" .Subscription}}{{end -}}
+{{template "queries" (wrap .Subscription $.Anchor)}}{{end -}}
 {{if .Objects}}
 ## Objects
-{{range .Objects}}{{template "object" .}}
+{{range .Objects}}{{template "object" (wrap . $.Anchor)}}
 ---
 {{end -}}
 {{end -}}
 {{if .Interfaces}}
 ## Interfaces
-{{range .Interfaces}}{{template "interface" .}}
+{{range .Interfaces}}{{template "interface" (wrap . $.Anchor)}}
 ---
 {{end -}}
 {{end -}}
@@ -319,13 +318,13 @@ const mdSchema = `# Reference
 {{end -}}
 {{if .Unions}}
 ## Unions
-{{range .Unions}}{{template "union" .}}
+{{range .Unions}}{{template "union" (wrap . $.Anchor)}}
 ---
 {{end -}}
 {{end -}}
 {{if .Inputs}}
 ## Input objects
-{{range .Inputs}}{{template "input" .}}
+{{range .Inputs}}{{template "input" (wrap . $.Anchor)}}
 ---
 {{end -}}
 {{end -}}
@@ -338,57 +337,57 @@ const mdSchema = `# Reference
 `
 
 const mdTOC = `{{with .Query}}
-- [Queries]({{anchor "Query" "type"}})
+- [Queries]({{index $.Anchor "type" "Query"}})
 {{- range .Fields}}
-	- [{{.Name}}]({{anchor .Name "field"}})
+	- [{{.Name}}]({{index $.Anchor "field" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Mutation}}
-- [Mutations]({{anchor "Mutation" "type"}})
+- [Mutations]({{index $.Anchor "type" "Mutation"}})
 {{- range .Fields}}
-	- [{{.Name}}]({{anchor .Name "field"}})
+	- [{{.Name}}]({{index $.Anchor "field" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Subscription}}
-- [Subscriptions]({{anchor "Subscription" "type"}})
+- [Subscriptions]({{index $.Anchor "type" "Subscription"}})
 {{- range .Fields}}
-	- [{{.Name}}]({{anchor .Name "field"}})
+	- [{{.Name}}]({{index $.Anchor "field" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Objects}}
-- [Objects]({{anchor "Objects" "type"}})
+- [Objects]({{index $.Anchor "type" "Objects"}})
 {{- range .}}
-	- [{{.Name}}]({{anchor .Name "type"}})
+	- [{{.Name}}]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Interfaces}}
-- [Interfaces]({{anchor "Interfaces" "type"}})
+- [Interfaces]({{index $.Anchor "type" "Interfaces"}})
 {{- range .}}
-	- [{{.Name}}]({{anchor .Name "type"}})
+	- [{{.Name}}]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Enums}}
-- [Enums]({{anchor "Enums" "type"}})
+- [Enums]({{index $.Anchor "type" "Enums"}})
 {{- range .}}
-	- [{{.Name}}]({{anchor .Name "type"}})
+	- [{{.Name}}]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Unions}}
-- [Unions]({{anchor "Unions" "type"}})
+- [Unions]({{index $.Anchor "type" "Unions"}})
 {{- range .}}
-	- [{{.Name}}]({{anchor .Name "type"}})
+	- [{{.Name}}]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Inputs}}
-- [Input objects]({{anchor "Input objects" "type"}})
+- [Input objects]({{index $.Anchor "type" "Input objects"}})
 {{- range .}}
-	- [{{.Name}}]({{anchor .Name "type"}})
+	- [{{.Name}}]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 {{- with .Scalars}}
-- [Scalars]({{anchor "Scalars" "type"}})
+- [Scalars]({{index $.Anchor "type" "Scalars"}})
 {{- range .}}
-	- [{{.Name}}]({{anchor .Name "type"}})
+	- [{{.Name}}]({{index $.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
 `
@@ -405,7 +404,7 @@ type md struct {
 	Scalars      []*ast.Definition
 
 	count  map[string]int
-	anchor map[string]map[string]string
+	Anchor map[string]map[string]string
 }
 
 func valid(f interface{}) bool {
@@ -461,10 +460,10 @@ func (md *md) updateAnchor(key, typ string, refs ...string) {
 	if c > 0 {
 		ref += "-" + strconv.Itoa(c)
 	}
-	if _, ok := md.anchor[typ]; !ok {
-		md.anchor[typ] = make(map[string]string)
+	if _, ok := md.Anchor[typ]; !ok {
+		md.Anchor[typ] = make(map[string]string)
 	}
-	md.anchor[typ][key] = ref
+	md.Anchor[typ][key] = ref
 	md.count[k]++
 }
 
@@ -489,10 +488,31 @@ func (md *md) updateAnchors(name, ref string, defs interface{}) {
 	}
 }
 
+func indent(tabs int, input string) string {
+	prefix := strings.Repeat("\t", tabs)
+	split := strings.Split(input, "\n")
+	for i := range split {
+		if i != 0 {
+			split[i] = prefix + split[i]
+		}
+	}
+	return strings.Join(split, "\n")
+}
+
+var mdTemplate *template.Template
+
+func init() {
+	// gm := goldmark.New(
+	// 	goldmark.WithRendererOptions(
+	// 		html.WithHardWraps(),
+	// 	),
+	// )
+}
+
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	md := &md{
 		count:  make(map[string]int),
-		anchor: make(map[string]map[string]string),
+		Anchor: make(map[string]map[string]string),
 	}
 	md.Query = md.filterFields(schema.Query)
 	md.updateAnchors("Query", "#queries", md.Query)
@@ -533,7 +553,14 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			if err := t.ExecuteTemplate(&buf, name, v); err != nil {
 				return "", err
 			}
-			return indent(tabs, buf.String()), nil
+			prefix := strings.Repeat("\t", tabs)
+			split := strings.Split(buf.String(), "\n")
+			for i := range split {
+				if i != 0 {
+					split[i] = prefix + split[i]
+				}
+			}
+			return strings.Join(split, "\n"), nil
 		},
 		"desc": func(input string) (string, error) {
 			var buf strings.Builder
@@ -543,15 +570,14 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			s = strings.TrimSuffix(s, "</p>")
 			return s, err
 		},
-		"wrap": func(s string, i int) string {
+		"wordwrap": func(s string, i int) string {
 			return wordwrap.WrapString(s, uint(i))
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		"anchor": func(s, T string) string {
-			return md.anchor[T][s]
+		"implementers": func(def *ast.Definition) []*ast.Definition {
+			return schema.GetPossibleTypes(def)
 		},
-		"implementers": func(def *ast.Definition) []*ast.Definition { return schema.GetPossibleTypes(def) },
 		"fields": func(T *ast.Type) ast.FieldList {
 			return schema.Types[T.Name()].Fields
 		},
@@ -559,6 +585,29 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			m := minify.New()
 			m.AddFunc("text/html", mhtml.Minify)
 			return m.String("text/html", s)
+		},
+		"wrap": func(v interface{}, anchor map[string]map[string]string) interface{} {
+			switch v := v.(type) {
+			case *ast.Definition:
+				r := struct {
+					*ast.Definition
+					Anchor map[string]map[string]string
+				}{v, anchor}
+				return r
+			case *ast.FieldDefinition:
+				r := struct {
+					*ast.FieldDefinition
+					Anchor map[string]map[string]string
+				}{v, anchor}
+				return r
+			case ast.ArgumentDefinitionList:
+				r := struct {
+					ast.ArgumentDefinitionList
+					Anchor map[string]map[string]string
+				}{v, anchor}
+				return r
+			}
+			return nil
 		},
 	})
 	template.Must(t.New("arguments").Parse(mdArguments))
