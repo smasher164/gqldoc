@@ -250,7 +250,7 @@ const mdTableMutations = `<table>
 		</tr>
 	</thead>
 	<tbody>
-	{{- range fields .Type}}
+	{{- range (index $.MD.Types .Type.Name).Fields}}
 		<tr>
 			<td><strong>{{.Name}}</strong> (<a href="{{index $.MD.Anchor "type" .Type.Name}}"><strong>{{.Type}}</strong></a>)</td>
 			<td>{{.Description | desc}}
@@ -277,7 +277,7 @@ const mdMutations = `{{range .Fields -}}
 {{- end}}
 {{- end}}
 
-{{- if fields .Type}}
+{{- if (index $.MD.Types .Type.Name).Fields}}
 #### Return fields
 {{indentTemplate "tableMutations" (wrapMD . $.MD) 0 | minify}}
 {{- end}}
@@ -406,6 +406,7 @@ type markdown struct {
 	count        map[string]int
 	Anchor       map[string]map[string]string
 	Implementers map[string][]*ast.Definition
+	Types        map[string]*ast.Definition
 }
 
 func valid(f interface{}) bool {
@@ -515,6 +516,7 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 		count:        make(map[string]int),
 		Anchor:       make(map[string]map[string]string),
 		Implementers: schema.PossibleTypes,
+		Types:        schema.Types,
 	}
 	md.Query = md.filterFields(schema.Query)
 	md.updateAnchors("Query", "#queries", md.Query)
@@ -577,9 +579,6 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		"fields": func(T *ast.Type) ast.FieldList {
-			return schema.Types[T.Name()].Fields
-		},
 		"minify": func(s string) (string, error) {
 			m := minify.New()
 			m.AddFunc("text/html", mhtml.Minify)
