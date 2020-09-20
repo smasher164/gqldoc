@@ -148,9 +148,9 @@ const mdInterface = `### {{.Name}}
 {{indentTemplate "directives" . 0 | minify}}
 {{end}}
 
-{{- if implementers .Definition}}
+{{- if index $.MD.Implementers .Definition.Name}}
 #### Implemented by
-{{- range implementers .Definition}}
+{{- range index $.MD.Implementers .Definition.Name}}
 - [<code>{{.Name}}</code>]({{index $.MD.Anchor "type" .Name}})
 {{- end}}
 {{- end}}
@@ -403,8 +403,9 @@ type markdown struct {
 	Inputs       []*ast.Definition
 	Scalars      []*ast.Definition
 
-	count  map[string]int
-	Anchor map[string]map[string]string
+	count        map[string]int
+	Anchor       map[string]map[string]string
+	Implementers map[string][]*ast.Definition
 }
 
 func valid(f interface{}) bool {
@@ -511,8 +512,9 @@ func init() {
 
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	md := &markdown{
-		count:  make(map[string]int),
-		Anchor: make(map[string]map[string]string),
+		count:        make(map[string]int),
+		Anchor:       make(map[string]map[string]string),
+		Implementers: schema.PossibleTypes,
 	}
 	md.Query = md.filterFields(schema.Query)
 	md.updateAnchors("Query", "#queries", md.Query)
@@ -575,9 +577,6 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		"implementers": func(def *ast.Definition) []*ast.Definition {
-			return schema.GetPossibleTypes(def)
-		},
 		"fields": func(T *ast.Type) ast.FieldList {
 			return schema.Types[T.Name()].Fields
 		},
