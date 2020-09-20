@@ -490,71 +490,19 @@ func (md *markdown) updateAnchors(name, ref string, defs interface{}) {
 	}
 }
 
-func indent(tabs int, input string) string {
-	prefix := strings.Repeat("\t", tabs)
-	split := strings.Split(input, "\n")
-	for i := range split {
-		if i != 0 {
-			split[i] = prefix + split[i]
-		}
-	}
-	return strings.Join(split, "\n")
-}
-
 var mdTemplate *template.Template
 
 func init() {
-	// gm := goldmark.New(
-	// 	goldmark.WithRendererOptions(
-	// 		html.WithHardWraps(),
-	// 	),
-	// )
-}
-
-func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
-	md := &markdown{
-		count:        make(map[string]int),
-		Anchor:       make(map[string]map[string]string),
-		Implementers: schema.PossibleTypes,
-		Types:        schema.Types,
-	}
-	md.Query = md.filterFields(schema.Query)
-	md.updateAnchors("Query", "#queries", md.Query)
-
-	md.Mutation = md.filterFields(schema.Mutation)
-	md.updateAnchors("Mutation", "#mutations", md.Mutation)
-
-	md.Subscription = md.filterFields(schema.Subscription)
-	md.updateAnchors("Subscription", "#subscriptions", md.Subscription)
-
-	md.Objects = md.filterKind(schema.Types, ast.Object)
-	md.updateAnchors("Objects", "#objects", md.Objects)
-
-	md.Interfaces = md.filterKind(schema.Types, ast.Interface)
-	md.updateAnchors("Interfaces", "#interfaces", md.Interfaces)
-
-	md.Enums = md.filterKind(schema.Types, ast.Enum)
-	md.updateAnchors("Enums", "#enums", md.Enums)
-
-	md.Unions = md.filterKind(schema.Types, ast.Union)
-	md.updateAnchors("Unions", "#unions", md.Unions)
-
-	md.Inputs = md.filterKind(schema.Types, ast.InputObject)
-	md.updateAnchors("Input objects", "#input-objects", md.Inputs)
-
-	md.Scalars = md.filterKind(schema.Types, ast.Scalar)
-	md.updateAnchors("Scalars", "#scalars", md.Scalars)
-
 	gm := goldmark.New(
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
 		),
 	)
-	t := template.New("schema")
-	t = t.Funcs(template.FuncMap{
+	mdTemplate = template.New("schema")
+	mdTemplate = mdTemplate.Funcs(template.FuncMap{
 		"indentTemplate": func(name string, v interface{}, tabs int) (string, error) {
 			var buf strings.Builder
-			if err := t.ExecuteTemplate(&buf, name, v); err != nil {
+			if err := mdTemplate.ExecuteTemplate(&buf, name, v); err != nil {
 				return "", err
 			}
 			prefix := strings.Repeat("\t", tabs)
@@ -608,22 +556,58 @@ func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 			return nil
 		},
 	})
-	template.Must(t.New("arguments").Parse(mdArguments))
-	template.Must(t.New("directives").Parse(mdDirectives))
-	template.Must(t.New("scalar").Parse(mdScalar))
-	template.Must(t.New("tableObject").Parse(mdTableObject))
-	template.Must(t.New("tableQueries").Parse(mdTableQueries))
-	template.Must(t.New("tableMutations").Parse(mdTableMutations))
-	template.Must(t.New("tableInput").Parse(mdTableInput))
-	template.Must(t.New("tableInterface").Parse(mdTableInterface))
-	template.Must(t.New("object").Parse(mdObject))
-	template.Must(t.New("interface").Parse(mdInterface))
-	template.Must(t.New("union").Parse(mdUnion))
-	template.Must(t.New("enum").Parse(mdEnum))
-	template.Must(t.New("input").Parse(mdInput))
-	template.Must(t.New("queries").Parse(mdQueries))
-	template.Must(t.New("mutations").Parse(mdMutations))
-	template.Must(t.New("toc").Parse(mdTOC))
-	template.Must(t.Parse(mdSchema))
-	return t.Execute(dst, md)
+	template.Must(mdTemplate.New("arguments").Parse(mdArguments))
+	template.Must(mdTemplate.New("directives").Parse(mdDirectives))
+	template.Must(mdTemplate.New("scalar").Parse(mdScalar))
+	template.Must(mdTemplate.New("tableObject").Parse(mdTableObject))
+	template.Must(mdTemplate.New("tableQueries").Parse(mdTableQueries))
+	template.Must(mdTemplate.New("tableMutations").Parse(mdTableMutations))
+	template.Must(mdTemplate.New("tableInput").Parse(mdTableInput))
+	template.Must(mdTemplate.New("tableInterface").Parse(mdTableInterface))
+	template.Must(mdTemplate.New("object").Parse(mdObject))
+	template.Must(mdTemplate.New("interface").Parse(mdInterface))
+	template.Must(mdTemplate.New("union").Parse(mdUnion))
+	template.Must(mdTemplate.New("enum").Parse(mdEnum))
+	template.Must(mdTemplate.New("input").Parse(mdInput))
+	template.Must(mdTemplate.New("queries").Parse(mdQueries))
+	template.Must(mdTemplate.New("mutations").Parse(mdMutations))
+	template.Must(mdTemplate.New("toc").Parse(mdTOC))
+	template.Must(mdTemplate.Parse(mdSchema))
+}
+
+func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
+	md := &markdown{
+		count:        make(map[string]int),
+		Anchor:       make(map[string]map[string]string),
+		Implementers: schema.PossibleTypes,
+		Types:        schema.Types,
+	}
+	md.Query = md.filterFields(schema.Query)
+	md.updateAnchors("Query", "#queries", md.Query)
+
+	md.Mutation = md.filterFields(schema.Mutation)
+	md.updateAnchors("Mutation", "#mutations", md.Mutation)
+
+	md.Subscription = md.filterFields(schema.Subscription)
+	md.updateAnchors("Subscription", "#subscriptions", md.Subscription)
+
+	md.Objects = md.filterKind(schema.Types, ast.Object)
+	md.updateAnchors("Objects", "#objects", md.Objects)
+
+	md.Interfaces = md.filterKind(schema.Types, ast.Interface)
+	md.updateAnchors("Interfaces", "#interfaces", md.Interfaces)
+
+	md.Enums = md.filterKind(schema.Types, ast.Enum)
+	md.updateAnchors("Enums", "#enums", md.Enums)
+
+	md.Unions = md.filterKind(schema.Types, ast.Union)
+	md.updateAnchors("Unions", "#unions", md.Unions)
+
+	md.Inputs = md.filterKind(schema.Types, ast.InputObject)
+	md.updateAnchors("Input objects", "#input-objects", md.Inputs)
+
+	md.Scalars = md.filterKind(schema.Types, ast.Scalar)
+	md.updateAnchors("Scalars", "#scalars", md.Scalars)
+
+	return mdTemplate.Execute(dst, md)
 }
