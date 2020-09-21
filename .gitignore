@@ -8,6 +8,7 @@
 !*.md
 !*.gql
 !*.graphql
+!*.extension
 !.gitignore
 !go.mod
 !go.sum
