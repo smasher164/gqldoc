@@ -50,7 +50,7 @@ func TestRenderGraphQL(t *testing.T) {
 }
 
 func TestRenderMarkdown(t *testing.T) {
-	schema, err := gqldoc.ParseFiles([]string{"testdata/valid.graphql"})
+	schema, err := gqldoc.ParseFiles([]string{"testdata/star-wars.graphql"})
 	if err != nil {
 		t.Fatal(err)
 	}
