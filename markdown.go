@@ -573,6 +573,9 @@ func (md *markdown) updateAnchors(name, ref string, defs interface{}) {
 	}
 }
 
+// FormatGraphQL formats the GraphQL schema as GitHub flavored
+// markdown and writes it to dst, returning any error encountered
+// when calling Write.
 func FormatMarkdown(dst io.Writer, schema *ast.Schema) error {
 	md := &markdown{
 		count:        make(map[string]int),
