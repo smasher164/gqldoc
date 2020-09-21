@@ -49,8 +49,12 @@ func (w panicWriter) Write(p []byte) (n int, err error) {
 	panic(err)
 }
 
-// FormatGraphQL formats and writes the GraphQL schema to dst, and
-// returns any error encountered when calling Write.
+// Formatter formats and writes the schema to dst, returning any
+// error encountered.
+type Formatter func(dst io.Writer, schema *ast.Schema) error
+
+// FormatGraphQL reformats the GraphQL schema and writes it to dst,
+// returning any error encountered when calling Write.
 func FormatGraphQL(dst io.Writer, schema *ast.Schema) (err error) {
 	defer func() {
 		if e, ok := recover().(error); ok {
